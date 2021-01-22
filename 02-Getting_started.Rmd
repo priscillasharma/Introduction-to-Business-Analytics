@@ -15,7 +15,12 @@ This chapter introduces R and Rstudio, explains the difference between them, pro
 
 R is a free, open source statistical programming language that consists in a set of functions for doing stuff with data: manipulating it, graphing it, and calculating statistics (among other things). Further information on R is available at the [R project](https://www.r-project.org/about.html) page. 
 
-Go to the Comprehensive R Archive Network or [CRAN](https://cran.r-project.org) to download R and install it on your computer. Pick the latest release for your operating system.  
+Go to the Comprehensive R Archive Network or [CRAN](https://cran.r-project.org) to download R and install it on your computer. Pick the latest release for your operating system.  Here are instructions:
+
+```{r echo = F}
+embed_url("https://vimeo.com/203516510")
+```
+
 
 We will refer to the basic functions included with the version of R that you installed from CRAN as "base R." 
 
@@ -27,19 +32,16 @@ There are  a very large number of supplementary packages that extend R's usefuln
 
 RStudio is a free [integrated design environment](https://en.wikipedia.org/wiki/Integrated_development_environment) or IDE for R. R can certainly be used by itself (and in fact many people whose workflows predate RStudio prefer to do just that) but the graphical user interface or GUI is extremely minimalistic.  RStudio helps improve productivity by  supplying a much richer GUI that offers menu-driven support for many programming and organizational tasks. An IDE such as RStudio makes it easier to get stuff done. We will be using RStudio extensively in this course. 
 
-Go to [rstudio.com](https://www.rstudio.com) to download the desktop version of RStudio, making sure to pick the free version that is appropriate for your operating system.  Note:  *you must have R installed before you install RStudio*.  
+Go to [rstudio.com](https://www.rstudio.com) to download the desktop version of RStudio, making sure to pick the free version that is appropriate for your operating system.  Note:  *you must have R installed before you install RStudio*.  Here are instructions:
+
+```{r echo = F}
+embed_url("https://vimeo.com/203516968")
+```
+
 
 While RStudio was originally developed to work with R, it has now been expanded to accommodate a variety of different software tools like python and SQL. 
 
 It is important to keep in mind that RStudio is not itself a programming language; it simply supplies a computer environment for interacting with the programming language of your choice. Think of it like this: The plumbing in your home supplies water, but the plumbing system is not the water. RStudio is a bit like plumbing.  You could carry water in from outside, just as you could use R by itself, but it is faster and more convenient to use an IDE like RStudio. 
-
-## Installing R and RStudio (video) 
-
-Here a recent video that will walk you through the process of downloading and installing both R and RStudio on your computer:
-
-```{r echo = F}
-embed_url("https://youtu.be/by5HyJX6H1I")
-```
 
 
 ## Installing R packages
@@ -61,6 +63,14 @@ Once you've installed RStudio, download and install tidyverse: look for "Tools" 
 ![](images/install.png){width="100%"}
 
 Alternatively, you can accomplish the same thing by typing, for example, `install.packages("tidyverse")` in the console, the area in RStudio where you enter R programming commands directly, and pressing "return." You need quotation marks around the package name in this case.  By default the console pane is in RStudio's lower left quadrant. 
+
+Here is a video detailing how to install packages:
+
+
+```{r echo = F}
+embed_url("https://vimeo.com/203516241")
+
+```
 
 The "Package" tab in RStudio's plot pane (by default in the lower right quadrant) lists the packages you have installed; clicking on the highlighted package name will bring up in the "Help" tab a list of the functions included in the package (displayed above).  The documentation for each function has crucial details about usage and output, along with examples.  Sometimes the documentation also helpfully includes links to papers, or "vignettes," that provide additional details on the package.
 
