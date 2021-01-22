@@ -1,0 +1,918 @@
+# Data Understanding and Preparation
+
+
+
+
+```{r include=FALSE}
+
+library(knitr)
+library(vembedr)
+library(tidyverse)
+knitr::opts_chunk$set(echo = T, message=FALSE, warning=FALSE)
+
+```
+
+```{r include = F}
+# setwd("~/Box Sync/IS-6487/Data Understanding and Preparation")
+# d <- read_csv("megatel_churn.csv")
+# 
+# d$HOUSE[3321] <- -d$HOUSE[3321]
+# d$HANDSET_PRICE[300] <- 2000234
+# d$OVER_15MINS_CALLS_PER_MONTH[c(15,150,1500)] <- NA
+# d$INCOME[1789] <- -d$INCOME[1789]
+# d$ID <- sample(20000, 5000)
+# write.csv(d, "megatelco.csv", row.names = F)
+
+```
+
+## tl;dr
+
+This chapter provides a detailed introduction to working with data in R, including an example workflow for conducting exploratory data analysis or EDA in the context of an analytics project. The chapter reviews summary statistics, goes through code for cleaning and preparing a data set for modeling (with line-by-line explanations), and introduces strategies for doing EDA. 
+
+If you are reading specifically for code pertaining to the IS 6487 project for Module 3, pay attention to the first part of the section on EDA, "Demographic variables," where boxplots and barplots are discussed.
+
+## Introduction
+
+In ABOK Ch. 8, the job tasks associated with the CRISP-DM phases of data understanding and data preparation are:
+
+1. Identify and Prioritize Data Needs and Sources
+2. Acquire Data
+3. Harmonize, Rescale, Clean and Share Data
+4. Identify Relationships in the Data
+5. Document and Report Finding
+6. Refine the Business and Analytics Problem Statements
+
+This amount of detail is helpful and warranted.  For example, with respect to the first task, most real-world analytics  projects involve a data query or request. Using your understanding of the business problem, you  define the dataset you think you will need for the project. Typically, SQL code would then be written (either by you or an analyst) to extract the specified data from an existing database.  In the MegaTelCo case  we have defined the analytics problem as classification, since we  want to model and predict customer churn based on historical data.  We therefore need a variable in the data set representing customer churn, as well as a variety of possible predictors consisting in behavioral and financial information.  Exactly which variables?   That is a complicated question. To answer it intelligently would require a more or less sophisticated understanding of the phenomenon of churn, an understanding that could be obtained by interviewing subject matter experts.
+
+However, to make the process easy to remember and implement, we can simplify these JTA into three main steps:
+ 
+1. Get data
+2. Clean data
+3. Explore data
+
+
+## Get Data
+
+The variables you can use in a model will always be limited to those that are available, so sometimes the first JTA task in this CRISP-DM phase really is as simple as "get data." In the case of the MegaTelCo project, let us suppose, the dataset for the analysis has already been  curated by Marketing and includes every data element collected by the company that might reasonably be associated with---or could conceivably explain---customer retention.
+
+Here is the data dictionary for the dataset you received from Marketing.
+
+```{r echo = F}
+data.frame(Variable = c("College", "Income",  "Overage", "Leftover", "House", "Handset_price", "Over_15mins_calls_per_month", "Average_call_duration", "Reported_satisfaction", "Reported_usage_level", "Considering_change_of_plan", "Leave","ID"),
+            Explanation = c("Is the customer college educated?"," Annual income","Average overcharges per month","Average % leftover minutes per month","Estimated value of dwelling (from the census tract)", "Cost of phone", "Average number of long calls (15 mins or over) per month", "Average duration of a call", "Reported level of satisfaction", "Self-reported usage level", "Was customer considering changing his/her plan?","Class variable: whether customer left or stayed", "Numeric customer ID")) %>%
+  kable
+```
+
+In reviewing the data dictionary, you should begin thinking about how you will use these different variables. In particular, for modeling you will need to identify the target variable. In this case, the target will be `Leave`, which consists in a character variable with two values:  `LEAVE` and `STAY`. 
+
+
+### Import data
+
+Let's import that dataset, `megatelco.csv`, making sure also to load the packages we'll need. 
+
+Note that this chapter is written as if we were working within an R Markdown document with code chunks. You are welcome to copy and paste the code from each chunk into your own R Markdown document in RStudio.  The `megatelco.csv` dataset used in this chapter is available on Canvas.
+
+
+```{r }
+
+# Load packages
+library(tidyverse)
+
+# Import data
+m <- read_csv("megatelco.csv")
+
+
+```
+
+Here we have imported the `megatelco.csv` file from the working directory and assigned it to an object, `m` (for "MegaTelCo"), stored in memory. I like to keep the names of data objects short to reduce typing. That is a matter of personal style.
+
+
+For this code to work on your machine the file you are loading must be in the working directory.  Which folder is that?  You can check with `getwd()`. In general, I find it easiest to locate a downloaded file like `megatelco.csv` in my downloads folder, and then manually copy it and paste it to my working directory. Then the above code will work because the file is located where the function expects it.
+
+
+Notice that in the code chunks I am including comments (text preceded by a hashtag, `#`, is ignored by R). This makes my code easier to interpret---for me, when coming back to it, or for a colleague, when doing peer review.
+
+### Inspect data
+
+The next step is to take a look at the data and  make sure that  it loaded correctly. I like to start out by using the `glimpse()` function from `dplyr` which 
+
+- Identifies variable types. 
+- Gives the dimensions of the data.
+- Prints the first 10 rows.
+
+```{r ex1}
+# Inspect data
+glimpse(m)
+
+```
+There are two kinds of variables in this data set: character (denoted "<chr>") and numeric ("<dbl>").
+
+Additionally, the `summary()` function in base R is useful for understanding the properties of the data  and for spotting obvious data problems. When called on a data frame `summary()` automatically produces summary statistics that are appropriate for specific variable types as follows:
+
+- continuous:  min, 1st quartile, median, mean, 3rd quartile, max.
+- character: count of observations.
+- factor: counts of observations by level.  
+
+```{r ex2}
+# Inspect data
+summary(m)
+
+```
+
+You might be hazy on some of these summary statistics, so we'll come back to them below.
+
+Some problems with the data are immediately apparent in the summary table.  
+
+All the categorical (or qualitative) variables  have a data type of "character." We'll convert these into factors because:
+
+- factor variables are more memory efficient than character variables.
+- factor variables can represent an ordered relationship between levels.
+
+For example, `reported_satisfaction`  has the three unique values: "low," "avg," "high." Because this is a character variable, these categories are not ordered, but they obviously should be: "low" < "avg" < "high."  We will  therefore transform this variable into an ordinal factor, making sure that the levels are in the correct order (more on that below).^[Note that it is not always necessary to convert character variables into factor variables manually as part of the data cleaning process.  Some modeling algorithms, such as linear regression, will do the conversion automatically.]
+
+Additionally, there are some mistaken values in the dataset. `income` and `house` both represent dollar values. Thus negative values should not be regarded merely as outliers but as errors.  `handset_price` has a max that  is unrealistically high. And `over_15mins_calls_per_month`  has three missing observations marked as `NA`.
+
+The appropriate workflow is to clean the data then explore it (though sometimes you won't know that data needs to be cleaned until you explore it, so these two steps---cleaning and exploring---are definitely non-linear and iterative).  
+
+Why clean first? Unclean data can sometimes be difficult to explore.  For example, the large value of `handset_price` tends to make the other values illegible in a histogram of the data.  Histograms are a good plot choice for examining the frequency of observations in a single variable. Compare the histogram of `handset_price` with and without the large value:
+
+```{r ex4}
+
+# Histogram with large value
+ggplot(m, aes(handset_price)) +
+  geom_histogram() +
+  labs(title = "Distribution of handset_price (with large value)")
+```
+
+```{r ex5}
+# Histogram without large value
+m %>%
+  filter(handset_price < 1000) %>%
+  ggplot(aes(handset_price)) +
+  geom_histogram() +
+  labs(title = "Distribution of handset_price (without large value)")
+
+
+```
+In the first histogram the single large value skews the range of the data, eliminating any visibility into the majority of the data.
+
+The y-axis in a histogram is a count. You can think of a histogram as a bar plot of frequencies:  the range of a continuous variable is divided into bins, represented by the bars of the histogram, and the height of each bar represents the count of the observations falling into that bin. A histogram is a very handy exploratory plot, since it allows us to see, at a glance, which ranges of the variable are most common. In this case, after cleaning, it is apparent that phone prices under $500 are most common.
+
+Here is a brief video on histograms from Kahn Academy:
+
+
+```{r, echo = F}
+embed_url("https://www.youtube.com/watch?v=4eLJGG2Ad30")
+```
+
+
+As you can see, a histogram is a just a visual data summary. It is often convenient, however, to summarize column of data not with a plot but with a single number. The average or mean is probably the most common summary statistic indicating what we'll call the "central tendency" of the data. There are other summary statistics, of course. Before getting into cleaning the data, let's review some of the common ones.
+
+### Summary Statistics
+
+The `summary()` function produces a variety of statistics for numeric variables: minimum, first quartile, median, mean, third quartile, maximum. The minimum and maximum are obvious, but the others are a little more obscure.  Let's take a closer look.
+
+**Mean**
+
+The mean or average of a sample of data will be familiar to you: add up the observations and divide by the total number of observations.  In statistics the mean of a sample is referred to as $\bar{x}$, pronounced "xbar."  Here is the formula:  
+
+$$\bar{x} = \frac{x_1+x_2+\cdots+x_n}{n}$$
+
+For example, suppose you have five numbers: 10, 12, 3, 4, 500.  What is the mean?
+
+```{r}
+# Find the mean
+(10 + 12 + 3 + 4 + 500) / 5
+```
+
+In doing this calculation we obviously need to be careful to have the parentheses in the right place. 
+
+```{r}
+10 + 12 + 3 + 4 + 500 / 5
+```
+
+This is wrong---we have just divided 500 by 5!
+
+Rather than calculating the mean by hand it is easier (and less error prone) to use R's built-in function, `mean()`.  For `mean()` to work we must first put the numbers together into a vector using the `c()` function. ("c" stands for "concatenate.")
+
+```{r}
+#Find the mean with mean()
+mean(c(10, 12,  3, 4, 500))
+
+```
+
+**Median**
+
+As noted above, summary statistics like mean and median attempt to capture the central tendency of the data in a single number. Sometimes, however, what should count as the center of the data is not clear. Take the vector of numbers above. The mean is a somewhat unsatisfying summary since it is much, much larger than the majority of the numbers in the data. It does not really reflect the typical observation. In this case the large number, 500, has influenced the mean, pulling it away from the majority of the observations. This is one of the shortcomings of the mean: *it is sensitive to outliers.* 
+
+The median, by contrast, measures the center of the data in a way that is robust to outliers. The median is, simply, the middle of the data. The procedure for calculating the median is to sort the data from smallest to largest and then find the middle observation. (If there is an even number of observations then the median will be between the two middle observations.)  For an odd number of observations the formula is:
+
+$$\text{median}(x) = x_{(n + 1)/ 2} $$
+The subscript on $x$ represents the count of observations: $x_1$ is the first observation, $x_2$ is second, and so on, up to $x_{n}$, the $n^{th}$ observation. For the vector from above, $n$ = 5.  Thus we are looking for $x_{(5 + 1)/ 2} = x_3$ or the third observation in the sorted vector: 3, 4, 10, 12, 500. The median is 10.
+
+```{r}
+# Find the median with median()
+median(c(10, 12,  3, 4, 500))
+```
+
+In general, the median is the better measure of central tendency for data with outliers. It does a better job of identifying a typical observation.  
+
+**Percentiles**
+
+Once data has been sorted from small to large we can calculate percentiles. The median is the 50th percentile of the data because, being the middle of the data, it is 50% of the way through the sorted data, when starting from the smallest observation. The 25th percentile is 25% of the way through the sorted data (also known as the first quartile), and the 75th percentile is 75% through (the third quartile). The median is also the second quartile. Here is an example.  
+
+```{r}
+summary(1:10)
+```
+
+**Mode**
+
+Both mean and median  are summary statistics for numeric data. But what if you want to find the central tendency for categorical data? Median and mean, after all, are undefined for categorical data. What, for example, would be the average of a set of categories like small, medium, large? The question does not make sense unless these categories have been converted into a numeric measure such as weight or volume. For categorical data, then, the center is defined differently, as the highest-frequency or most common category, known as the mode.
+
+Be careful! In R `mode()` does not calculate the mode!  We'll use the `count()` verb from `dplyr` instead.  What is the mode of `considering_change_of_plan`?
+
+```{r}
+# Find the mode
+m %>% 
+  count(considering_change_of_plan) 
+```
+
+"Yes" is the mode because it has the largest number of observations.
+
+Here is a Kahn academy video on mean, median and mode.
+
+```{r, echo = F}
+embed_url("https://www.youtube.com/watch?v=h8EYEJ32oQ8")
+```
+
+**Standard Deviation**
+
+So far we have discussed measures of central tendency. But any statistic measuring the center will be less representative as the data becomes more variable.  That is why, along with measures of center, we focus on measures of spread in summarizing data. Standard deviation is probably the best known measure of variability.  It represents the average deviation of each observation from the mean of the data. In statistics the standard deviation of a sample of data is referred to as $s$.  The calculation of $s$ is a little tricky.  Here is the formula.
+
+$$s = \sqrt{\frac{1}{n-1} \sum_{i=1}^n \left(x_i - \bar{x}\right)^2}$$
+
+This formula says:
+
+1. From each observation, $x_i$, subtract the mean, $\bar{x}$, and square the difference.
+2. Sum up the squared differences for $x_i$ to $x_n$.  This is the meaning of that frightening summation symbol: $\sum_{i=1}^n$
+3. Divide by $n -1$.  Essentially this consists in calculating the average squared difference from the mean. 
+4.  Calculate the square root.
+
+Here is the calculation of squared differences from the mean using the sample from above: 10, 12,  3, 4, 500.
+
+```{r}
+
+data.frame(observation = c(10, 12,  3, 4, 500)) %>% 
+  mutate(mean = mean(observation),
+         difference = observation - mean,
+         squared_difference = difference^2) 
+
+```
+
+To obtain $s$ we next sum the squared differences, divide by $n-1$, then take the square root.
+
+```{r}
+data.frame(observation = c(10, 12,  3, 4, 500)) %>% 
+  mutate(mean = mean(observation),
+         difference = observation - mean,
+         squared_difference = difference^2) %>% 
+  summarize(sum = sum(squared_difference),
+            avg_sum = sum / 4,
+            s = sqrt(avg_sum))
+```
+
+(I leave it to you to puzzle through this code.) How accurate is this calculation?  We can double check using the R function `sd()`:
+
+```{r}
+sd(c(10, 12,  3, 4, 500))
+```
+
+How do we interpret this number? In this sample, 220.4 is the average difference of observations from the mean. 
+
+Here is a Kahn academy video on measures of spread.
+
+```{r, echo = F}
+embed_url("https://www.youtube.com/watch?v=E4HAYd0QnRc")
+
+```
+
+## Clean Data
+
+Let's summarize the issues that we would like to fix:
+
+- Qualitative variables should be turned into factors. That includes: `reported_statisfaction`, `reported_usage_level`, `considering_change_of_plan`, and `leave`.  The first two variables should be turned into ordinal factors specifically, as noted above.
+- `college` has values of  `zero` and `one.` Spelling out the numbers is weird.  We will change these to 0,  meaning no college, and 1, meaning college.  This is an example of a so-called "indicator variable," where 0 indicates the negative condition and 1 indicates the positive condition.
+- Remove negative values of `income` and `house`.
+- Remove absurd value of `handset_price`.
+- Remove rows with missing values (`NA`) in `over_15mins_calls_month`. Dealing with missing values can be a complicated problem.  In this case, because the number of missing values is small relative to the size of the dataset, it is fine to solve the problem by removing rows.
+- If our objective was modeling we would want to remove `ID` because it is obviously not a useful predictor of churn. For now we can leave `ID` in the data set.
+
+
+### Fix the Factors
+
+In base R, the `factor()` function will create a factor.  In doing so we need to specify the factor structure, otherwise R will automatically assign levels based on alphabetic (or numeric) order, which in this case is inappropriate and will cause problems, for example, when plotting. Here is the basic syntax: `factor(variable, levels, ordered)`.
+
+- "variable":  The variable to be converted to a factor.
+- "levels": The order of the factor levels specified as `levels = c(level1, level2, level3)`.  If this argument is omitted, then default alphabetic or numeric ordering is used.
+- "ordered": If `TRUE`, then the levels are distinguished  by differences in magnitude.
+
+Here are some examples:
+
+```{r}
+# Create a character variable
+f <- c("z", "y", "x")
+
+class(f)
+```
+
+We can turn `f` into a factor.  Leaving the `levels` and `ordered` arguments out will prompt the function to use the defaults:
+
+```{r}
+factor(f)
+```
+
+Let's now specify the order of the levels.
+
+```{r}
+factor(f, levels = c("z", "y", "x"))
+```
+
+What happens if we add `ordered = T`? Now the levels are not merely ordered in the sense that the alphabet is ordered; they are ordered in the sense that numbers are ordered: each level is greater than or less then the other levels.
+
+```{r}
+factor(f, levels = c("z", "y", "x"), ordered = T)
+```
+
+
+Here is the code for changing the factor structure of `reported_statisfaction`, `reported_usage_level`, `considering_change_of_plan`, and `leave`:
+
+
+
+
+
+```{r ex9 }
+
+# Create factors
+m_clean <- m %>%
+  mutate(reported_satisfaction = factor(reported_satisfaction,
+                                        levels = c("low","avg", "high"),
+                                        ordered = T),
+         reported_usage_level = factor(reported_usage_level,
+                                       levels = c("low",  "avg", "high"),
+                                       ordered = T),
+         considering_change_of_plan = factor(considering_change_of_plan,
+                                       levels = c("no", "maybe", "yes")),
+         leave = factor(leave))
+```
+
+Changes to the data have been stored in a new dataset, `m_clean`.  
+
+Here is an explanation of the above code:
+
+1. `m_clean <- m`:  Take the original dataset, `m`, and write it to a new dataset, `m_clean.`
+2. ` m %>%`: The pipe operator, which can be read as "and then." Note that "command-shift-m" is a shortcut for `%>%`.
+3. `mutate`:  The `dplyr` command for creating a new variable.  In this case we will not be creating brand new variables, but overwriting old ones, replacing the existing character variables with factor variables.
+4. `reported_satisfaction = factor(reported_satisfaction, levels = c("low","avg", "high"), ordered = T)`: Overwrite the existing `reported_satisfaction` character variable with a ordered factor using the specified level structure. The `levels()` argument allows you to set the order of the levels to override the default alphabetic ordering. The `ordered()` argument allows you to specify whether one level should be considered greater than another.
+5. `reported_usage_level = factor(reported_usage_level, levels = c("low",  "avg", "high"), ordered = T)`: Same explanation as above.
+6. `considering_change_of_plan = factor(considering_change_of_plan, levels = c("no", "maybe", "yes")`: Same explanation as above except that we have omitted the `ordered()` argument, relying instead on the default `ordered = F` argument.
+7. `leave = factor(leave)`: Same explanation as above except that now we will use the defaults only: alphabetic level ordering (first `LEAVE` then `STAY`) and `ordered = F`.
+
+Did it work?  Let's check.
+
+
+```{r}
+
+# Check that it worked
+m_clean %>% 
+  select(reported_satisfaction, reported_usage_level, considering_change_of_plan, leave) %>% 
+  summary
+```
+
+Looks good.  Now the summary of these variables provides more detailed information, with counts of observations at each factor level.
+
+
+### Fix college
+
+Next task is to replace the existing values of the college variable with something that makes more sense.  We will use the useful `ifelse()` command in base R. The syntax is  `ifelse(test, yes, no)`, where:
+
+- "test"	is an object which can be coerced to logical mode.
+- "yes"	returns values for true elements of test.
+- "no" returns values for false elements of test.
+
+
+```{r ex11}
+
+# Transform values in college using ifelse()
+m_clean <- m_clean %>%
+  mutate(college = ifelse(college == "one", 1, 0))
+
+# Check that it worked
+glimpse(m_clean$college)
+
+```
+
+Explanation of the code:
+
+1. `m_clean <- m_clean`: Overwrite the existing m_clean dataset with the updated version. 
+2. `%>%`: and then.
+3. `mutate`: Create a new variable.
+4. `college = `: Overwrite the `college` variable.
+5. `ifelse(college == "one", 1, 0)`: If `college` equals "one", then replace "one" with 1, otherwise replace it with 0.  The new variable is numeric.
+
+Notice that in the first step I am not creating a new dataset to store this change but am simply overwriting the old dataset with the new one.  For small changes this has the advantage of keeping the R environment uncluttered (see the upper right quadrant in RStudio  for a list of the objects in memory)  but it could create problems that you should be aware of. For example, you might  mistakenly replace your original data set with one that  contains an error. This would not be a disaster, provided that you notice the problem.  After fixing the code that produced the error, you could simply go back to the beginning of your .Rmd or .R file, to the point at which you downloaded the original .csv source file from your working directory, and rerun all of your code. It should be obvious that this is one of the key advantages of working reproducibly.  But---this is key---**NEVER change that source file itself!**  
+ 
+
+### Filter out rows with mistaken data
+
+Next, remove negative values of `income` and `house`, unrealistic values of `handset_price`, and rows with missing values in `over_15mins_calls_per_month`. But what should our threshold be for deciding whether a value of `handset_price` is too large?
+
+```{r ex12 }
+# Look at the distribution of phone prices
+
+m_clean %>%
+  arrange(desc(handset_price)) %>%
+  select(handset_price) %>%
+  head(n = 6)
+
+```
+Explanation of the code:
+
+1. `m_clean %>%`: Can be translated as "use `m_clean` as the source data and then ...." Here we are not saving the results of this code but simply printing it to the screen for information.
+2. `arrange(desc(handset_price))`:  Sorts the observations in `handset_price` in descending order. The default of `arragne` is to sort in ascending order:  `arrange(handset_price)`.
+3. `select(handset_price)`: Picks out a single column from the data set. 
+4. `head`:  Filters the dataset for just the top six observations.
+
+We can see that there is just one unlikely value of `handset_price`, which we can remove by subsetting for values less than 1000. 
+
+```{r ex13}
+# Remove rows with mistaken or missing values
+m_clean <- m_clean %>%
+  filter(income > 0,
+         house > 0,
+         handset_price < 1000)
+
+# Check that it worked
+m_clean %>% 
+  select(income, house, handset_price) %>% 
+  summary
+```
+
+
+Explanation of the code:
+
+1. `m_clean <- m_clean`: Overwrite the existing data set in order to save the changes.
+2. `filter(income > 0, house > 0, handset_price < 1000)`: Subset the data based on logical conditions. Here we know that income must be positive, home prices must be positive, and that the price of the phone should be greater than the second highest---and legitimate---value in the data set: 899. So we arbitrarily chose 1000 as the cutoff. Remember that `filter()` subsets a data set by rows, using logical conditions, while `select()` subsets a data set by columns, using column names. 
+
+### Remove NAs
+
+To remove the NAs in `over_15mins_calls_per_month` we will use the `na.omit()` function, which does just what it says:  it omits any row in the dataset containing an `NA.`
+
+```{r ex13_5}
+# Remove NAs
+m_clean <- m_clean %>%
+  na.omit
+```
+
+Explanation of the code:
+
+1. `m_clean <- m_clean`: Overwrite the existing dataset in order to save the changes.
+2. `na.omit`: Strip out all the rows that contain NAs. Remember that there is no way to remove individual missing observations; the entire row must be removed. `na.omit()` therefore performs a filtering operation known as "row-wise deletion."
+
+Did it work?
+
+```{r}
+# Check that it worked
+m_clean %>% 
+  select(over_15mins_calls_per_month) %>% 
+  summary
+```
+
+
+Explanation of the code:
+1. `m_clean %>% select`:  Use m_clean as the source data and then select a single column, `over_15mins_calls_per_month`.  
+3. `summary`: Produce summary statistics for the selected column.
+
+There are no remaining NAs.
+
+We have removed 6 rows in all and the dataset should now be clean and ready for exploration.  
+
+## Explore Data 
+
+Exploratory data analysis or EDA is as much art as science.  Where you end up---the insights you generate about patterns in the data---depends on where you start and the questions you ask along the way.  Different analysts will have different exploratory paths, more or less productive, through the data.  No one path is necessarily the right one.
+
+It helps to start with a question.  After getting and cleaning the data, pose a question based on your understanding of the business problem and let that question, combined with your creativity and critical thinking, guide your data exploration.  In our case that might be something like "Which variables are associated with churn?" We are less interested in relationships among predictors that we are in relationships between predictors and outcome.
+
+For EDA, then, we could survey the data by making univariate plots for each variable and bivariate plots for each predictor's relationship to the target.  I think it works better to be more strategic.  Notice that we have different sorts of variables:
+
+- *Demographic*:  `college`, `income`, `house`, `handset_price`.
+- *Behavioral*: `overage`, `leftover`, `over_15mins_calls_per_month`, `average_call_duration`, `reported_usage_level`.
+- *Attitudinal*: `reported_satisfaction`, `considering_change_of_plan`.
+
+How would we expect these to influence the outcome? It would be helpful at this point to talk to a subject matter expert.  But even without that guidance we can begin developing a tentative mental model---and from that a set of hypotheses  to explore---about how these variables might influence the outcome. For example:
+
+- Having more money---college educated, higher income, more expensive phone and house---makes  a customer less sensitive to the relationship between service and pricing and less likely to leave. (Incidentally, these demographic variables likely describe the same phenomenon--- wealth--- and should be correlated.)  
+
+- Heavy users will be more likely to leave because they may have experienced more service problems.
+
+- Low satisfaction leads to considering change of plan leads to leaving.
+
+Do we know that these assertions are true?  No. These are hypotheses  that we are seeking to explore--- keeping an open mind, happy to disconfirm--- with a variety of plots. 
+
+For purposes of illustration we will focus on just the demographic variables here.
+
+### Target Variable
+
+Before we get started examining these hypotheses, let's look at the distribution of `leave.`  This is a binary variable, so we need to compute the proportion of `STAY` vs. `LEAVE`, which we can do with the following code:
+
+```{r ex16}
+# Proportion of Stay
+mean(m_clean$leave == "STAY") 
+
+```
+
+Why does this code work?  `m_clean$leave == "STAY"` evaluates logically, as `TRUE` or `FALSE`, which R treats as 1 or 0.  The mean of a 0/1 vector is just the proportion of 1s.  Consider:
+
+```{r}
+# Create a 0/1 vector and calculate the mean
+c(1, 0, 0, 0, 0) %>% 
+  mean
+```
+
+Just one of these five observations is a 1.  Hence the proportion of 1s---the mean---is 1/5 = .2.
+
+### Demographic Variables
+
+Are wealthier customers less likely to leave?  
+
+We'll use `income` as a proxy for wealth.  How can we visualize the relationship between our binary target variable, `leave`, and a numeric predictor like `income`?  The conventional choice in this situation is a boxplot.
+
+As an introduction, let's create a boxplot of a single variable, income. 
+
+```{r}
+# Boxplot of income
+ggplot(data = m_clean, aes(y = income)) +
+  geom_boxplot()+
+  labs(title = "Boxplot")
+```
+
+
+The box represents the central tendency of the this variable, the middle 50% of the data, with the "hinges" (the lower and upper edges of the box) indicating the first quartile of the data and the third quartile. The middle line is the median.   (In this particular plot the values on the x-axis have no meaning.) The "whiskers" in this plot show observations that occur more rarely, that are more extreme than the first or third quartiles.
+
+For further details on boxplot boxplots, review this Kahn Academy video:
+
+```{r, echo = F}
+embed_url("https://www.youtube.com/watch?v=BXq5TFLvsVw")
+```
+
+
+Above we used a boxplot with just a single variable, but, more typically, a boxplot is used to show the relationship between a continuous variable and categorical variable. Here is example code for creating a boxplot comparing `income` at the two levels of `leave`. 
+
+```{r ex17}
+# Boxplot of leave vs. income
+ggplot(data = m_clean, aes(x = leave, y = income)) +
+  geom_boxplot() +
+  labs(title = "leave ~ income")
+
+```
+
+Explanation of the code.
+
+1. `ggplot(data = m_clean, aes(x = leave, y = income))`:  Create a blank ggplot canvas with `m_clean` as the data source, `leave` on the x-axis and `income` on the y-axis. Noticed that we are not saving this visualization in an object, but rather just printing it to the screen for information.
+2. `geom_boxplot()`:  Sets the plot type as a box plot. 
+3. `labs(title = "leave ~ income")`: Creates a title.
+
+The bigger the difference in medians between two target categories, leave and stay, the stronger predictor. However, there is obviously some judgment in interpreting the meaningfulness of visual differences. In the plot, we can see that there is a *slight* difference, with leavers having slightly higher incomes compared to stayers.  
+
+Now look at `house`.  Create a boxplot comparing `house` at the two levels of `leave`.
+
+ 
+```{r}
+# Boxplot of leave vs. house
+ggplot(data = m_clean, aes(x = leave, y = house)) +
+  geom_boxplot() +
+  labs(title = "leave ~ house")
+  
+
+```
+
+Leaving is more stronger related to house value, but in the opposite direction of income: Leavers have lower-priced homes than stayers.  This is the relationship we hypothesized.
+
+What about `college`? To plot this relationship we cannot use a boxplot.  Why?  Both `college` and `leave` are binary, but a boxplot shows the distribution of a *numeric* variable at different levels of a *categorical* variable.  Instead, we need a plot type that will allow us to compare two *categorical* variables. A barplot is a good choice.   The creation of the barplot in this instance, with two binary variables, is a little tricky, however. We need to do some data manipulation before creating the plot by calculating the number of observations, $n$, for each unique combination `leave` and `college`. 
+
+Here is the base table:
+
+```{r}
+# Create a table of counts
+m_clean %>%
+  count(leave, college) 
+  
+```
+
+Explanation of code:
+
+1. `m_clean %>%`:  Use m_clean as the source data and then....
+2. `count(leave, college)`: A shortcut `dplyr` function that combines `group_by` and `summarize`. The function will count the number of observations for each unique combination of `leave` and `college`. It  automatically creates a count variable in the summary table titled, `n`. 
+
+Next, pipe this table into `ggplot` code to create a barplot, as follows:
+
+```{r ex19}
+
+m_clean %>%
+  count(leave, college) %>%
+  ggplot(aes(x = college, y = n, fill = leave)) +
+  geom_col() +
+  labs(title = "leave ~ college")
+  
+```
+
+Explanation of code:
+
+1. `m_clean %>% count(leave, college)`: Same as above.  
+2. `ggplot(aes(x = college, y = n, fill = leave))`: Create a blank ggplot canvas with `college` on the x-axis, `n` on the y-axis and a third variable, `leave`, as the fill variable. The `fill` argument indicates that the bars should be colored by the two `leave` categories. Notice that the data argument has been omitted. This works because `ggplot` will automatically use the data that is being piped in.
+3. `geom_col()`: Used rather than `geom_bar` to create a barplot that displays pre-calculated values. 
+
+This looks okay, but the default setting in `geom_col()` is for stacked bars, which makes comparison difficult.  Putting the bars side-by-side, with `geom_col(position = "dodge")`, works better  since, perceptually, it is easier to see differences in  height than it is to see differences in area. Moreover,  in a dodged barplot the y-axis values are meaningful for each group. 
+
+Notice, also, that the x-axis has, inappropriately, a numeric scale. That is because `college` is currently an indicator variable. To fix the scaling, we need to turn `college` into a factor variable, which we can do on the fly within the `dplyr` code with `factor()`:
+
+Here is a plot with the x-axis scaling fixed and dodged bars:
+
+```{r }
+
+m_clean %>%
+  count(leave, college = factor(college)) %>%
+  ggplot(aes(college, n, fill = leave)) +
+  geom_col(position = "dodge")+
+  labs(title = "leave ~ college")
+  
+  
+```
+
+This plot shows that there are more leavers among those who went to college than there are among those who did not go to college.  
+
+
+Here the counts in each category are similar. However, when the counts are quite different it can work better to plot proportions rather than counts.  The  problem is that high frequency categories force a scale that makes it difficult to appreciate  the  relative magnitude of differences in low frequency categories.   Switching to proportions solves that problem. 
+
+To get the proportion of `STAY` and `LEAVE` at each level of usage we need to divide each `n` by the sum of `n` in each usage level:
+
+```{r ex21}
+
+m_clean %>%
+  count(leave, college) %>%
+  group_by(college) %>% # group_by "college" to get the proportion of churn in each level
+  mutate(proportion = n / sum(n)) 
+  
+```
+
+Grouping by `college` allows us to calculate the proportion of leavers and stayers for `college == 0` and `college == 1`.  So, for example, among those without college there are 1186 / (1186 + 1314) = .4744 leavers and 1314/ (1186 + 1314) = .5266 stayers.  Because leaving and staying are the only two options .5266 + .4744 = 1.
+
+Next, we pipe this table into `ggplot` for visualization:
+
+```{r}
+
+m_clean %>%
+  count(leave, college) %>%
+  group_by(college) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ggplot(aes(college, proportion, fill = leave)) +
+  geom_col(position = "dodge") +
+  labs(title = "leave ~ college")
+  
+  
+```
+ 
+The plot doesn't change much because the counts were pretty similar to begin with. But notice that the y-axis is now a proportion. 
+
+A simpler version of this plot would plot only the proportion of `LEAVE`:
+
+
+```{r usage2}
+
+m_clean %>%
+  group_by(college = factor(college)) %>%
+  summarize(proportion = mean(leave=="LEAVE")) %>%
+  ggplot(aes(college, proportion)) +
+  geom_col() +
+  labs(title = "leave ~ college")
+  
+```
+
+This barplot, while it captures the same information, can be misleading because the proportion for `STAY` is missing.  For this reason the earlier plot, with bars for both `STAY` and `LEAVE`, is preferable.
+
+### Behavioral
+
+Are heavy mobile users more likely to leave? Create a boxplot to comparing `overage` at the two levels of `leave`.
+
+
+```{r overage-solution}
+
+ggplot(m_clean, aes(leave, overage)) +
+  geom_boxplot() +
+  labs(title = "leave ~ overage")
+  
+```
+
+As expected, customers with overcharges were more likely to leave.  The next plots, `leave` vs. `over_15mins_calls_per_month` and `leave` vs. `average_call_duration`, should show a similar relationship.
+
+Create a boxplot to compare `over_15mins_calls_per_month` at the two levels of `leave`.
+
+
+```{r mins-solution}
+
+ggplot(m_clean, aes(leave, over_15mins_calls_per_month)) +
+  geom_boxplot() +
+  labs(title = "leave ~ over_15mins_calls_per_month")
+  
+```
+
+Next, compare `average_call_duration` at the two levels of `leave`.
+
+
+
+```{r duration-solution}
+
+ggplot(m_clean, aes(leave, average_call_duration)) +
+  geom_boxplot() +
+  labs(title = "leave ~ average_call_duration")
+  
+```
+
+Essentially no difference for `average_call_duration`.
+
+What about reported usage?  Since this is a categorical variable, a barplot is a good choice.   The creation of the barplot is a little tricky, however, in part because we need to do some data manipulation before creating the plot, as we did for `college` above.  Here is a plot of counts.
+
+
+```{r ex20}
+
+m_clean %>%
+  count(leave, reported_usage_level) %>%
+  ggplot(aes(reported_usage_level, n, fill = leave)) +
+  geom_col(position = "dodge")
+  
+```
+
+
+When counts for categories are dramatically different (as in this case) it can work better to plot proportions, as noted above.  The  problem is that high frequency categories force a scale that makes it difficult to appreciate  the  relative magnitude of differences in low frequency categories.   Switching to proportions solves that problem. 
+
+
+```{r usage}
+
+m_clean %>%
+  count(leave, reported_usage_level) %>%
+  group_by(reported_usage_level) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ggplot(aes(reported_usage_level, proportion, fill = leave)) +
+  geom_col(position = "dodge") +
+  labs(title = "leave ~ usage level")
+  
+```
+ 
+Now we can see that the difference between `LEAVE` and `STAY` in the average groups is is actually larger than it seemed in the earlier plot. Overall, however, there is not much difference between the groups.  Self-reported low users  were slightly more likely to stay, while average users were less likely.
+
+
+### Attitudinal
+
+Are  satisfied customers  more likely to stay? Are those considering a change more likely to leave? Intuitively, it seems that the answer to both should be "yes."
+ 
+These variables also are categorical, so we will use a similar strategy as above to plot the relationship with `leave`. Using the preceding examples, plot the proportion of `STAY` vs. `LEAVE` for each level of satisfaction.
+
+```{r sat-solution}
+
+m_clean %>%
+  count(leave, reported_satisfaction) %>%
+  # group_by satisfaction to calculate the proportion leaving in each level
+  group_by(reported_satisfaction) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ggplot(aes(reported_satisfaction, proportion, fill = leave)) +
+  geom_col(position = "dodge") +
+  labs(title = "leave ~ satisfaction level")
+  
+```
+
+
+
+
+The slight differences observed observed here---that customers with low or average satisfaction were *less* likely to leave compared to those with high levels of reported satisfaction---is not what we expected. It seemed reasonable to expect that dissatisfied customers would be *much more* likely to leave.  This is a confounding result.
+
+Let's create the same sort of plot for `considering_change_of_plan`.
+
+
+```{r change-solution}
+
+m_clean %>%
+  count(leave, considering_change_of_plan) %>%
+  group_by(considering_change_of_plan) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ggplot(aes(considering_change_of_plan, n, fill = leave)) +
+  geom_col(position = "dodge") +
+  labs(title = "leave ~ considering_change_of_plan")
+
+
+```
+
+These differences are relatively small. Still, we observe *exactly the reverse* of the relationship that we expected: those customers considering changing  actually  leave at *lower* rates. This is very surprising!  Might this relationship vary by wealth  or usage? Any time the relationship between two variables differs by the levels of the third variable we have what is called an *interaction.*  We will use `facet_wrap` to create boxplots comparing leave and stay for different house prices at each level of `considering_change_of_plan`.
+
+
+```{r house_int}
+
+m_clean %>%
+  ggplot(aes(leave, house)) +
+  geom_boxplot() +
+  facet_wrap(~considering_change_of_plan) +
+  labs(title = "leave ~ house varying by considering_change_of_plan")
+  
+```
+
+Notice that the syntax for `facet_wrap()` is to specify the factor variable on which you would like to wrap, preceded by a tilde.
+
+Let's create a similar plot for overage:  `leave` ~ `overage` varying by `considering_change_of_plan`.
+
+```{r overage_int-solution}
+
+m_clean %>%
+  ggplot(aes(leave, overage)) +
+  geom_boxplot() +
+  facet_wrap(~considering_change_of_plan) +
+  labs(title = "leave ~ overage varying by considering_change_of_plan")
+  
+```
+
+Is there a difference in either plot?  Not really.  We see the same basic relationship at each level of the considering variable between, on the one hand, `house` and `leave`, and, on the other, `overage` and `leave`.
+
+## EDA Summary
+
+There is always more EDA to do!   In fact, because the phases in the CRISP-DM model  are  iterative and reversible, later phases in a project, such as modeling and model evaluation/deployment,  will often necessitate more EDA.  For now, let's summarize what we have learned.   In some cases our initial hypotheses were supported, in other cases not.
+
+1. Customers who were  dissatisfied  were not more likely to leave compared to those who were satisfied. Customers who were considering a change were not more likely to leave compared to those who were not considering change.  In fact, customers who were dissatisfied or were considering a change were (slightly) *more* likely to stay!
+
+2. Usage is related to leaving. Customers with overcharges or with more long calls (over 15 minutes)  tended to leave at higher rates.
+
+3. The demographic variables probably had the weakest relationship to churn. House value was positively associated with staying.
+
+Have we learned anything from this EDA exercise that might cause us to  revise our account of the business problem? Perhaps.  As we noted, it seems intuitive that higher levels of customer satisfaction should lead to higher rates of  retention. But it doesn't.  Marketing  will be designing a special offer to lure customers into renewing their contracts.  If that campaign is designed with the primary aim of increasing customer satisfaction, then it may  not  have the desired effect of improving retention. 
+
+## Summary
+
+
+**Base R Functions**
+
+- `read.csv()`. Reads a .csv file into R's working memory for analysis. The equivalent function in the tidyverse is `read_csv()`, which will do pretty much the same thing.
+- `summary().` Summarizes the variables in a dataset. The output is especially useful for getting a quick understanding of the distribution of numeric variables. It reports: min, max, first quartile, third quartile, median and mean. For factor variables the function reports the number of observations at each level. 
+- `==.` Evaluates logically, returning TRUE if two items are identical, otherwise FALSE.
+- `factor()`. Creates a factor variable.
+- `na.omit()`. Removes all rows with NAs from the dataset.
+- `head()`. Shows the top rows of a data frame.
+- `mean()`. Calculates the mean of a vector of numbers.
+- `median()`. Calculates the median of a vector of numbers.
+- `sd()`. Calculates the standard deviation of a vector of numbers.
+- `ifelse()`.  Replaces one value in a vector with another.
+
+**dplyr Functions**
+
+- `glimpse()`. Provides a snapshot view of a dataset.
+- `count()`. Counts the number of observations. Same as: `group_by() %>% summarize(n = n())`.
+- `summarize()`. Verb for creating a summary table.
+- `%>%`. A pipe. Shortcut is shift-command-m. Used for separating data operations into discrete steps, for readability.
+- `filter()`. Subsets data frame by excluding rows based on logical conditions.
+- `select()`. Selects columns in a data frame by name.
+- `mutate()`. Creates new column.
+- `group_by()`. Sets the grouping variable for subsequent operations on data.
+- `arrange()`.  Sort a data frame based on an input column.
+
+**ggplot2 Functions**
+
+- `ggplot()`.  Created a blank plot canvas.  Must be used in conjunction with a `geom` function specifying the plot type and the aesthetic mapping. 
+- `aes()`.  The aesthetic argument to the `ggplot` function. Specifies which variables 
+Map to the ex and Y axis, and which is associated with an additional plot dimension such as color.
+- `geom_boxplot()`. Creates a boxplot.
+- `geom_histogram`. Creates a histogram.
+- `geom_col()`. Creates a bar plot with pre-calculated values.
+- `position = "dodge"`. Argument to geom_col() to create a bar plot with dodged bars.
+- `labs()`. Supplies plot title and axis labels.
+- `facet_wrap()`.  Creates a small multiples plot.
+
+**Glossary**
+
+- `Working Directory`.
+- `Data dictionary.`
+- `Exploratory data analysis or EDA`.
+- `Workflow`
+- `Target variable`. 
+- `Predictor`. 
+- `Mean`. 
+- `Median`. 
+- `Mode`.
+- `Standard deviation`. 
+- `Distribution`. 
+- `Central tendency`.
+- `Percentile`.
+- `Spread`.
+- `Categorical variable`. 
+- `Numeric (or continuous) variable`.
+- `Factor`.
+- `Ordinal factor`.
+- `Histogram`.
+- `Bin`.
+- `Barplot`.
+- `Boxplot`
+

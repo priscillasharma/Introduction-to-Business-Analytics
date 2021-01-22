@@ -1,0 +1,312 @@
+# Model Evaluation and Deployment
+
+
+
+
+
+A key challenge  in an analytics project is to figure out what to do with a model after creating it.  How will we use it to solve the business problem?  What should we recommend the business do?  In asking these questions we have moved from the domain of predictive analytics---the subject of the last module---to the domain of *prescriptive* analytics,  which is focused on making (to quote DSB) "actionable recommendations based on a data analytic model about what the decision-maker should do to achieve a particular objective." This prescriptive aim *roughly* lines up with the final phases of the CRISP-DM analytics process, Model Evaluation and Model Deployment. I say "roughly" because prescriptive analytics could take place during the CRISP-DM Modeling phase and because deployment can mean a variety of things in analytics projects.  A model might be deployed by writing a report explaining a key relationship  in the data and recommending a course of action, which is clearly prescriptive.  Or it might be deployed by being put into production---for example,  implementing a model to automatically forecast a KPI. This is not clearly prescriptive.  Nevertheless, most analytic solutions should include a prescriptive component, a recommendation for how the results should be used---which course of action, out of the many available, should be taken.  
+
+Consequently, *translation* and *persuasion* are key activities in these later phases of the analytics process. We must translate model results into, and persuade an audience of stakeholders about, recommended actions. This is not simple. It requires that the analyst venture beyond quantifiable inputs and outputs into less certain domains, ones  that require weighing possibilities, exercising business judgment, and making an argument for the best course of action---your  considered recommendation. 
+
+This chapter will walk you through that process. 
+
+
+
+## Business Validation
+
+In the last tutorial, we evaluated our tree model using accuracy, a simple classifier performance metric.  Accuracy allows us to compare models--- for example, we found that the tree model with all the predictors is better than the one with just `house`---but it can't answer other important questions, such as: How exactly should the model results be used to solve the business problem?  
+
+The model evaluation phase of a project is when we take a step back and do business validation of a model by asking these sorts of questions. Additional metrics, such as a confusion matrix, and additional approaches, such as the expected value framework, will help us assess whether---and how---the analytic work we've done solves the business problem.
+
+
+## Confusion Matrix
+
+Accuracy is the proportion of correct model predictions of a categorical outcome. We can summarize the results of any classification model even more precisely using a confusion matrix, so named because it shows where the model is confused, tallying how many times the model correctly or incorrectly predicts the event happening (in this case the "event" we are interested in predicting is `LEAVE`) and how many times it correctly or incorrectly predicts the event not happening (`STAY`). Notice that there are four possibilities here:
+
+- predict event correctly, known as a "true positive" (TP)
+- predict event incorrectly, known as a "false positive" (FP)
+- predict no event correctly, known as a "true negative" (TN)
+- predict no event incorrectly, known as a "false negative" (FN)
+
+The four possibilities fit into a 2 x 2 matrix:
+
+```{r echo = F}
+cm <- table(predicted = m_clean$leave,
+      observed = rep(c("LEAVE","STAY"), nrow(m_clean)/2))
+
+cm[1,1] <- "TP"
+cm[2,1] <- "FN"
+cm[1,2] <- "FP"
+cm[2,2] <- "TN"
+
+cm
+```
+
+Here are the actual numbers from our second tree model using all the predictors:
+
+```{r }
+# Confusion matrix
+table(predicted = predict(tree_model2, type = "class"),
+      observed = m_clean$leave)
+
+
+```
+
+How to read this?  As indicated by the labels, the model's predictions are in the rows of the confusion matrix, and the observed values from the data are in the columns. The matrix allow us to see what sort of errors the model is making.
+
+- TP: 1930 cases in which the model correctly predicted `LEAVE`
+- FP: 919 cases in which the model incorrectly predicted `LEAVE`
+- FN: 538 cases in which the model incorrectly predicted `STAY`
+- TN: 1607cases in which the model correctly predicted `STAY`
+
+Notice that we can obtain accuracy from the confusion matrix also by summing the diagonal from upper left to lower right and dividing by the total:  $Acc = \frac{\sum TP + \sum TN}{\sum Total Pop}$ = (1930 + 1607)/ (1930 + 1607 + 538 + 919) = .71.
+
+(There are many additional metrics described at the end of DSB, Chapter 7 that can be calculated from the confusion matrix.  We won't go into them now.)
+
+To improve this model we would need to boost the accuracy either by increasing the number of true positives or the number of true negatives, or both. 
+
+## Probability
+
+In the previous chapter we used a tree model of `leave`  to predict a class label: `STAY` or `LEAVE.` The predicted class label there was defined by default as the majority class in each leaf node of the tree. So, for example, if the majority of customers in a node---say, 6 out of 10, or, equivalently, a proportion greater than .5---had an observed outcome of `STAY`  then the model would predict `STAY` for those customers and for future similar customers. But it would be easy enough to translate 6/10 into a *probability* rather than a class label. The probability in this case would be a rate derived from the counts in that leaf node: 6/10 represents a probability of .6 that customers in that node would stay.  
+
+In this sense, probability is simply *an observed rate of  event occurrence in historical data*. It can be thought of as a proportion representing that rate, a number ranging between 0 and 1, with 0  indicating the impossibility of the event (never observed) and 1 indicating the certainty of the event (always observed). A probability of .5 represents an equal chance of either outcome---a coin toss. 
+
+Translating counts into probabilities makes a tree classification model more flexible and powerful, in two ways:
+
+1.  We can use model-generated probabilities to "score" or rank customers based on their likelihood of churning.
+
+2. We can adjust the probability threshold used for assigning a class label.  
+
+As noted, we previously used the default probability threshold of .5---the majority---to predict a class label.  But it is possible---indeed, given business considerations, it is often preferable---to adjust that threshold, which we'll call the *class decision threshold.*
+
+
+## Class Decision Threshold
+
+The majority class in a tree model leaf node represents the proportion of observations greater than .5.  When we use a tree model to predict a class label using default settings (`type = "class"`) we are implicitly using a probability threshold, or class decision threshold, of .5.  But there is nothing magic about the .5 class decision threshold for assigning a class label.  We could easily have used a different threshold, and using different thresholds produces different sorts of model errors in the resulting confusion matrices.  
+
+We can  obtain a *probability* for leaving or staying, calculated as described above, by changing the `type` argument for `predict()` from "class" to "prob":
+
+```{r predict-prob1}
+# Predict probability -- produces two columns
+predict(tree_model2, type = "prob") %>%
+  head
+```
+
+Notice that some of the probabilities seem to be repeated (for example, observations 3-5) and that the probability of `LEAVE`  (in column 1) plus the probability of `STAY` (in column 2) always equals 1. 
+
+1. Probabilities are repeated since some observations wind up in the same leaf node and consequently share the same rate of event occurrence.
+
+2. Staying and leaving are mutually exclusive events since for a given customer one or the other  *must* occur. Thus $p(STAY) + p(LEAVE) = 1$, which means that $p(STAY) = 1 - p(LEAVE)$ and $p(LEAVE) = 1 - p(STAY)$.
+
+
+We would use square bracket notation, `[ , ]`, to index the first column specifically, in order to extract the probability for `LEAVE`:
+
+```{r predict-prob2}
+predict(tree_model2, type = "prob")[,1] %>%
+  head
+
+# Same result:  predict(tree_model2, type = "prob")$LEAVE
+```
+
+
+Formally, when using a model to estimate the probability of staying (or leaving) we are actually estimating a *conditional* probability, expressed with this notation:  $p(STAY | X)$.  This can be read as: the probability of staying given or *conditional upon* (that is what "|" means) a set of predictors, $X$.  
+
+Notice that we can obtain exactly the same confusion matrix as the one above by using a class decision threshold of .5. The following code says:  if the predicted probability of leaving is greater than .5 then predict `LEAVE`, otherwise predict `STAY`.
+
+```{r tab2}
+
+table(predicted = ifelse(predict(tree_model2, type = "prob")[,1] > .5, "LEAVE", "STAY"),
+      observed = m_clean$leave)
+
+```
+
+
+What would happen if we used a threshold of, say, .7? This would make it harder for a leaf node to receive a class label of `LEAVE` since for a node with 10 observations more than 7 rather than more than 5 would need to be `LEAVE` to be assigned that label. The model's predictions of `LEAVE` should therefore go down, and the predictions of `STAY` would go up.
+
+```{r tab3}
+table(predicted = ifelse(predict(tree_model2, type = "prob")[,1] > .7, "LEAVE", "STAY"),
+      observed = m_clean$leave)
+
+```
+
+And they do.  This illustrates a general point. We can manipulate the class decision threshold to change the predicted class labels and the *sorts* of errors a model makes.  Business validation of a model often involves setting the threshold in a way that maximizes benefits and minimizes costs in the context of a particular business problem.
+
+
+## Costs and Benefits
+
+Let's get specific about costs and benefits in the MegaTelCo case by supposing that, for purposes of illustration, the incentive proposed by Marketing will cost the company 200 dollars and that retained customers will produce additional revenue of 800 dollars in the next year relative to customers who churn, and, consequently, generate no revenue.   (The additional revenue for retained customers would be a guess, of course.  Customers likely have different plans, and the data does not include that information.) Profit for retained customers would thus be 800 - 200 = 600 dollars.  Profit for customers who churn would be negative: 0 - 200 = -200 dollars.  Here is the **cost-benefit matrix**:
+
+```{r echo = F}
+
+cb <- table(predicted = m_clean$leave,
+      observed = predict(tree_model2, type = "class"))
+
+cb[1,1] <- 600
+cb[2,1] <- 0
+cb[1,2] <- -200
+cb[2,2] <- 0
+
+cost_benefit <- cb
+
+cb
+
+```
+
+True positives are a benefit because those customers, having been correctly identified by the model, are candidates for targeting; they can be convinced to renew.  False positives are a cost because these customers were already going to stay; the incentive will be wasted on them. Moreover, costs and benefits will only be considered for customers predicted to leave---the first row of the table--- since they are the only ones to whom the incentive will be offered.  
+
+To estimate profit we simply multiply  the dollar value in each cell by the corresponding number of customers in the confusion matrix. 
+
+
+```{r, echo = T}
+# Calculate profit
+1930 * 600 - 200 * 919
+
+```
+
+Profit in this case is positive.  Average profit is easy to compute and perhaps less unwieldy to work with:  974,200 / 4994 = \$195.08.
+
+Let's do the same sort of calculation using the class decision threshold of .7. Does profit go up or down?
+
+```{r profit1}
+# Calculate profit
+1076 * 600 -  297 * 200
+
+```
+
+Profit went down.
+
+Notice that our profit estimates will change depending on:
+
+- *The cost-benefit matrix.* "While the probabilities can be estimated from data, the costs and benefits often cannot. They generally depend on external information provided via analysis of the consequences of decisions in the context of the specific business problem. Indeed, specifying the costs and benefits may take a great deal of time and thought. In many cases they cannot be specified exactly but only as approximate ranges" (DSB, Chapter 7).
+- *The accuracy of a given model*. The more accurate the model the fewer costs (false positives) and the more benefits (true positives), leading to higher overall profit.
+- *The decision threshold used to create a given confusion matrix*. The default threshold of .5 may not be ideal. 
+
+
+
+## Optimizing the Class Decision Threshold
+
+Which class decision threshold would be the best? We can answer this question by calculating profit at different possible decision thresholds in order to identify the one that produces maximum profit.  
+
+Here is an example of how we might do this calculation.
+
+1. Pick a set of potential class decision thresholds, and store them in a data frame with an empty profit column (to be filled in the next step).
+
+```{r ev1}
+(EV <- data.frame(threshold = seq(0, 1, by = .1),
+                  profit = NA) %>% 
+  distinct(threshold, profit) %>% 
+  arrange(threshold))
+
+```
+
+2. Calculate expected profit at every threshold using a loop. This code is involved but uses the same basic strategies developed above. Don't worry if you can't follow the code perfectly; it is presented here simply as an illustration of the method.
+
+```{r ev2}
+
+for(i in 1:nrow(EV)){
+  threshold <- EV$threshold[i]
+  probability <- predict(tree_model2, type = "prob")[,1]
+  predicted_class <- ifelse(probability >= threshold, "LEAVE", "STAY") 
+  predicted_class <- factor(predicted_class, levels = c("LEAVE", "STAY"))
+  confusion_matrix <- table(predicted_class, m_clean$leave) 
+  profit_matrix <- confusion_matrix * cost_benefit
+  EV$profit[i] <- profit_matrix[1,] %>% sum 
+  }
+
+EV %>%  round(2)
+```
+
+You get the idea. Setting the threshold at around .2---that is, predict `LEAVE` for customers with estimated probability of churn equal to or greater than the threshold---would produce the maximum  profit. 
+
+There are a couple of things to keep in mind when reading this table:
+
+- Expected profit at the thresholds of .8 and .9 is 0 because the maximum predicted probability of leaving for this dataset and model is .797. Hence no customers would be targeted at these thresholds, and there would be no profit.
+
+- A threshold of 0 means that all customers would be assigned a class label of `LEAVE`, in which case all customers would be targeted.  This is profitable, but less so than selective targeting. Offering the incentive only to those customers who have a .2 or greater probability of churning would increase profit. 
+
+
+## What Next?
+
+
+Remember that our tree model was created or *trained* using historical data, which included information about the observed target---whether a given customer in fact churned. This is, of course, what makes the approach *supervised*: there is an observed outcome variable.  We started the course by emphasizing the distinction between *creating* a model and *using* a model.  How will we use the model?  To predict churn probabilities for existing customers.  These probabilities, together with the class decision threshold that will optimize expected profit (also calculated from historical data, as above), can be used to develop a contact list of customers for the Marketing department.  Marketing can thus make best use of the incentive money allocated for the campaign by spending it only on the customers who are most likely leave.
+
+Here are the tasks necessary to produce the list:
+
+1. Train a classification model on historical data. This means, among other things, that the target variable has been observed: We know whether a customer has renewed or churned
+
+2. Obtain a dataset of *existing* customers.  The dataset must have exactly the same features as the historical data used to train the model, but it will obviously not include a target variable:  existing customers have not yet renewed or churned.  
+
+3. Use the trained model to predict the probability of leaving for each existing customer.  
+
+4. Use the cost-benefit matrix and predicted probabilities to find the class decision threshold that maximizes expected profit.   Our calculation above suggested that .2 would be the best cutoff. We will use this number.
+
+5. Use these predicted probabilities, along with the best class decision threshold, to identify a subset of existing customers to be contacted by Marketing. This contact list will be the deliverable for the project.
+
+Let's work through the details.
+
+### Train the model
+
+```{r model}
+churn_model <- rpart(leave ~ ., data = m_clean)
+```
+
+Here we must be careful to remove `id` since, as an arbitrary number, it has no predictive power. We will, however, use `id` later to associate a predicted probability with each customer.
+
+### Obtain a dataset of existing customers
+
+Here is the dataset of 2000 current customers. Notice that the variables are the same as those in the historical data (minus the target), though obviously the customers themselves are different.
+
+```{r include = F}
+set.seed(123)
+current_customers <- m_clean %>% 
+  sample_n(size = 2000) %>% 
+  mutate(id = sample(seq(20000, 30000, by = 1), 2000)) %>% 
+  select(-leave)
+```
+
+```{r data}
+glimpse(current_customers)
+```
+
+### Use the model to predict probabilities
+
+Predicting probabilities for the new dataset of current customers is straightforward.  Simply use the `newdata` argument in the `predict()` function:
+
+```{r  predict }
+predict(churn_model, 
+        newdata = current_customers, 
+        type = "prob") %>% 
+  head
+```
+
+We'll now set up a new data frame that includes only `id` and the predicted probability of churn.  
+
+```{r  predict2}
+
+predictions <- current_customers %>% 
+  select(id) %>% 
+  mutate(churn_prob = predict(tree_model, 
+                              newdata = current_customers, 
+                              type = "prob")[,1])
+
+head(predictions)
+```
+
+### Find the optimal class decision threshold 
+
+Above we calculated this as .2.  
+
+### Create the contact list
+
+The contact list will consist in the subset of customers with model-estimated probability of .2 or greater.
+
+```{r  contact }
+contact_list <- predictions %>% 
+  filter(churn_prob >= .2) %>% 
+  arrange(desc(churn_prob))
+
+glimpse(contact_list)
+```
+
+Marketing should contact the 1559 existing customers on this list with a retention offer. If the budget is limited, priority should be given to the customers at the top of the list.
+
