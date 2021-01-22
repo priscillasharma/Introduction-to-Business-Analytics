@@ -1,0 +1,34 @@
+--- 
+title: "Course Notes for Introduction to Business Analytics"
+author: "Jeff Webb"
+date: "`r Sys.Date()`"
+output: pdf_document
+documentclass: book
+bibliography:
+- book.bib
+- packages.bib
+biblio-style: apalike
+link-citations: yes
+description: Course notes for IS 6487, Introduction to Business Analytics, offered
+  through the David Eccles School of Business at the University of Utah.
+site: bookdown::bookdown_site
+---
+
+# Preface {-}
+
+## About This Book
+
+These course notes represent an evolving and expanding textbook for a course offered through the David Eccles School of Business at the University of Utah: *Introduction to Business Analytics.*  As you read through it, you will notice that some sections are empty. These will be filled in eventually. 
+
+This book is publicly accessible so you will have access to it after graduation.
+
+## How to use the book
+
+You will be able to copy, paste and run the code from this book in your own desktop version of RStudio (provided you have the referenced datasets loaded into memory). Look for the cut/paste icon in the upper left of each code chunk.
+
+The book is fully searchable.  Look for the magnifying glass icon on the top menu.  
+
+The download button is not operational.  The book is not (yet) downloadable as a .pdf or epub book.
+
+
+
