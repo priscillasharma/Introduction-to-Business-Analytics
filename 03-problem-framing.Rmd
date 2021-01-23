@@ -1,7 +1,7 @@
 # Business Problem Framing 
 
 ## tl:dr
-
+test
 Understanding the business context of an analytics project is critical.  This chapter covers, with examples, some of the key steps in the first phase in the CRISP-DM project lifecycle:  business understanding and problem framing. These include framing the business problem and the analytic problem by conducting interviews with stakeholders, and using this information to write a business problem statement, which will function as an informal contract for work.  Crucially, the business problem statement sets client expectations about the nature of the deliverable and the criteria of success for the project. 
 
 ## Introduction
