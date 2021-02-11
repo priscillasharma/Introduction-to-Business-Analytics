@@ -29,7 +29,7 @@ knitr::opts_chunk$set(echo = T, message=FALSE, warning=FALSE)
 
 This chapter provides a detailed introduction to working with data in R, including an example workflow for conducting exploratory data analysis or EDA in the context of an analytics project. The chapter reviews summary statistics, goes through code for cleaning and preparing a data set for modeling (with line-by-line explanations), and introduces strategies for doing EDA. 
 
-If you are reading specifically for code pertaining to the IS 6487 project for Module 3, pay attention to the first part of the section on EDA, "Demographic variables," where boxplots and barplots are discussed.
+If you are reading specifically for code pertaining to the IS 6487 project for Module 3, pay attention to section 4.5.2 - "Demographic variables", where boxplots and barplots are discussed.
 
 ## Introduction
 
@@ -94,24 +94,24 @@ Notice that in the code chunks I am including comments (text preceded by a hasht
 
 ### Inspect data
 
-The next step is to take a look at the data and  make sure that  it loaded correctly. I like to start out by using the `glimpse()` function from `dplyr` which 
+The next step is to look at the data and make sure that it has loaded correctly. I like to start out by using the `glimpse()` function from `dplyr` which 
 
-- Identifies variable types. 
-- Gives the dimensions of the data.
-- Prints the first 10 rows.
+- Gives the dimensions of the data (Rows, columns)
+- Identifies variable types (numeric, character, etc.)
+- Prints the first 10 rows
 
 ```{r ex1}
 # Inspect data
 glimpse(m)
 
 ```
-There are two kinds of variables in this data set: character (denoted "<chr>") and numeric ("<dbl>").
+There are two kinds of variables in this data set: character (denoted by <chr>) and numeric (denoted by <dbl>).
 
-Additionally, the `summary()` function in base R is useful for understanding the properties of the data  and for spotting obvious data problems. When called on a data frame `summary()` automatically produces summary statistics that are appropriate for specific variable types as follows:
+Additionally, the `summary()` function in base R is useful for understanding the properties of the data  and for spotting obvious data problems. When called on a data frame, `summary()` automatically produces summary statistics that are appropriate for specific variable types as follows:
 
-- continuous:  min, 1st quartile, median, mean, 3rd quartile, max.
-- character: count of observations.
-- factor: counts of observations by level.  
+- continuous variables:  min, 1st quartile, median, mean, 3rd quartile, max.
+- character variables: count of observations.
+- factor variables: counts of observations by level.  
 
 ```{r ex2}
 # Inspect data
@@ -154,7 +154,8 @@ m %>%
 
 
 ```
-In the first histogram the single large value skews the range of the data, eliminating any visibility into the majority of the data.
+
+In the first histogram, the single large value skews the range of the data, thus eliminating any visibility into the majority of the data.
 
 The y-axis in a histogram is a count. You can think of a histogram as a bar plot of frequencies:  the range of a continuous variable is divided into bins, represented by the bars of the histogram, and the height of each bar represents the count of the observations falling into that bin. A histogram is a very handy exploratory plot, since it allows us to see, at a glance, which ranges of the variable are most common. In this case, after cleaning, it is apparent that phone prices under $500 are most common.
 
@@ -247,7 +248,7 @@ embed_url("https://www.youtube.com/watch?v=h8EYEJ32oQ8")
 
 **Standard Deviation**
 
-So far we have discussed measures of central tendency. But any statistic measuring the center will be less representative as the data becomes more variable.  That is why, along with measures of center, we focus on measures of spread in summarizing data. Standard deviation is probably the best known measure of variability.  It represents the average deviation of each observation from the mean of the data. In statistics the standard deviation of a sample of data is referred to as $s$.  The calculation of $s$ is a little tricky.  Here is the formula.
+So far we have discussed measures of central tendency. But any statistic measuring the center will be less representative as the data becomes more variable.  That is why, along with measures of center, we focus on measures of spread in summarizing data. Standard deviation is probably the best known measure of variability.  It represents the average deviation of each observation from the mean of the data. In statistics, the standard deviation of a sample of data is referred to as $s$.  The calculation of $s$ is a little tricky.  Here is the formula.
 
 $$s = \sqrt{\frac{1}{n-1} \sum_{i=1}^n \left(x_i - \bar{x}\right)^2}$$
 
@@ -305,7 +306,7 @@ Let's summarize the issues that we would like to fix:
 - Remove negative values of `income` and `house`.
 - Remove absurd value of `handset_price`.
 - Remove rows with missing values (`NA`) in `over_15mins_calls_month`. Dealing with missing values can be a complicated problem.  In this case, because the number of missing values is small relative to the size of the dataset, it is fine to solve the problem by removing rows.
-- If our objective was modeling we would want to remove `ID` because it is obviously not a useful predictor of churn. For now we can leave `ID` in the data set.
+- If our objective was modeling, we would want to remove `ID` because it is obviously not a useful predictor of churn. For now we can leave `ID` in the data set.
 
 
 ### Fix the Factors
@@ -393,7 +394,7 @@ Looks good.  Now the summary of these variables provides more detailed informati
 
 ### Fix college
 
-Next task is to replace the existing values of the college variable with something that makes more sense.  We will use the useful `ifelse()` command in base R. The syntax is  `ifelse(test, yes, no)`, where:
+Next task is to replace the existing values of the college variable with something that makes more sense.  We will use the `ifelse()` command in base R. The syntax is  `ifelse(test, yes, no)`, where:
 
 - "test"	is an object which can be coerced to logical mode.
 - "yes"	returns values for true elements of test.
@@ -438,7 +439,7 @@ m_clean %>%
 Explanation of the code:
 
 1. `m_clean %>%`: Can be translated as "use `m_clean` as the source data and then ...." Here we are not saving the results of this code but simply printing it to the screen for information.
-2. `arrange(desc(handset_price))`:  Sorts the observations in `handset_price` in descending order. The default of `arragne` is to sort in ascending order:  `arrange(handset_price)`.
+2. `arrange(desc(handset_price))`:  Sorts the observations in `handset_price` in descending order. The default of `arrange` is to sort in ascending order:  `arrange(handset_price)`.
 3. `select(handset_price)`: Picks out a single column from the data set. 
 4. `head`:  Filters the dataset for just the top six observations.
 
@@ -489,7 +490,7 @@ m_clean %>%
 
 
 Explanation of the code:
-1. `m_clean %>% select`:  Use m_clean as the source data and then select a single column, `over_15mins_calls_per_month`.  
+1. `m_clean %>% select(over_15mins_calls_per_month)`:  Use m_clean as the source data and then select a single column, `over_15mins_calls_per_month`.  
 3. `summary`: Produce summary statistics for the selected column.
 
 There are no remaining NAs.
@@ -500,7 +501,7 @@ We have removed 6 rows in all and the dataset should now be clean and ready for 
 
 Exploratory data analysis or EDA is as much art as science.  Where you end up---the insights you generate about patterns in the data---depends on where you start and the questions you ask along the way.  Different analysts will have different exploratory paths, more or less productive, through the data.  No one path is necessarily the right one.
 
-It helps to start with a question.  After getting and cleaning the data, pose a question based on your understanding of the business problem and let that question, combined with your creativity and critical thinking, guide your data exploration.  In our case that might be something like "Which variables are associated with churn?" We are less interested in relationships among predictors that we are in relationships between predictors and outcome.
+It helps to start with a question.  After getting and cleaning the data, pose a question based on your understanding of the business problem and let that question, combined with your creativity and critical thinking, guide your data exploration.  In our case that might be something like "Which variables are associated with churn?" We are less interested in relationships among predictors than we are in relationships between predictors and outcome.
 
 For EDA, then, we could survey the data by making univariate plots for each variable and bivariate plots for each predictor's relationship to the target.  I think it works better to be more strategic.  Notice that we have different sorts of variables:
 
@@ -508,17 +509,19 @@ For EDA, then, we could survey the data by making univariate plots for each vari
 - *Behavioral*: `overage`, `leftover`, `over_15mins_calls_per_month`, `average_call_duration`, `reported_usage_level`.
 - *Attitudinal*: `reported_satisfaction`, `considering_change_of_plan`.
 
-How would we expect these to influence the outcome? It would be helpful at this point to talk to a subject matter expert.  But even without that guidance we can begin developing a tentative mental model---and from that a set of hypotheses  to explore---about how these variables might influence the outcome. For example:
+How would we expect these to influence the outcome? It would be helpful at this point to talk to a subject matter expert.  But even without that guidance, we can begin developing a tentative mental model---and from that a set of hypotheses  to explore---about how these variables might influence the outcome. 
 
-- Having more money---college educated, higher income, more expensive phone and house---makes  a customer less sensitive to the relationship between service and pricing and less likely to leave. (Incidentally, these demographic variables likely describe the same phenomenon--- wealth--- and should be correlated.)  
+For example:
+
+- Having more money---College educated, higher income, more expensive phone and house---makes  a customer less sensitive to the relationship between service and pricing and less likely to leave. (Incidentally, these demographic variables likely describe the same phenomenon--- wealth, and thus should be correlated.)  
 
 - Heavy users will be more likely to leave because they may have experienced more service problems.
 
-- Low satisfaction leads to considering change of plan leads to leaving.
+- Low satisfaction leads to considering change of plan which leads to leaving.
 
-Do we know that these assertions are true?  No. These are hypotheses  that we are seeking to explore--- keeping an open mind, happy to disconfirm--- with a variety of plots. 
+Do we know if these assertions are true?  No. These are hypotheses  that we are seeking to explore--- keeping an open mind, happy to disconfirm--- with a variety of plots. 
 
-For purposes of illustration we will focus on just the demographic variables here.
+For purposes of illustration, we will focus on just the demographic variables here.
 
 ### Target Variable
 
@@ -556,9 +559,9 @@ ggplot(data = m_clean, aes(y = income)) +
 ```
 
 
-The box represents the central tendency of the this variable, the middle 50% of the data, with the "hinges" (the lower and upper edges of the box) indicating the first quartile of the data and the third quartile. The middle line is the median.   (In this particular plot the values on the x-axis have no meaning.) The "whiskers" in this plot show observations that occur more rarely, that are more extreme than the first or third quartiles.
+The box represents the central tendency of this variable, the middle 50% of the data, with the "hinges" (the lower and upper edges of the box) indicating the first quartile of the data and the third quartile. The middle line is the median.   (In this particular plot the values on the x-axis have no meaning.) The "whiskers" in this plot show observations that occur more rarely, that are more extreme than the first or third quartiles.
 
-For further details on boxplot boxplots, review this Kahn Academy video:
+For further details on boxplots, review this Kahn Academy video:
 
 ```{r, echo = F}
 embed_url("https://www.youtube.com/watch?v=BXq5TFLvsVw")
@@ -577,11 +580,11 @@ ggplot(data = m_clean, aes(x = leave, y = income)) +
 
 Explanation of the code.
 
-1. `ggplot(data = m_clean, aes(x = leave, y = income))`:  Create a blank ggplot canvas with `m_clean` as the data source, `leave` on the x-axis and `income` on the y-axis. Noticed that we are not saving this visualization in an object, but rather just printing it to the screen for information.
+1. `ggplot(data = m_clean, aes(x = leave, y = income))`:  Create a blank ggplot canvas with `m_clean` as the data source, `leave` on the x-axis and `income` on the y-axis. Notice that we are not saving this visualization in an object, but rather just printing it to the screen for information.
 2. `geom_boxplot()`:  Sets the plot type as a box plot. 
 3. `labs(title = "leave ~ income")`: Creates a title.
 
-The bigger the difference in medians between two target categories, leave and stay, the stronger predictor. However, there is obviously some judgment in interpreting the meaningfulness of visual differences. In the plot, we can see that there is a *slight* difference, with leavers having slightly higher incomes compared to stayers.  
+The bigger the difference in medians between two target categories, leave and stay, the stronger the predictor. However, there is obviously some judgment in interpreting the meaningfulness of visual differences. In the plot, we can see that there is a *slight* difference, with leavers having slightly higher incomes compared to stayers.  
 
 Now look at `house`.  Create a boxplot comparing `house` at the two levels of `leave`.
 
@@ -653,7 +656,7 @@ This plot shows that there are more leavers among those who went to college than
 
 Here the counts in each category are similar. However, when the counts are quite different it can work better to plot proportions rather than counts.  The  problem is that high frequency categories force a scale that makes it difficult to appreciate  the  relative magnitude of differences in low frequency categories.   Switching to proportions solves that problem. 
 
-To get the proportion of `STAY` and `LEAVE` at each level of usage we need to divide each `n` by the sum of `n` in each usage level:
+To get the proportion of `STAY` and `LEAVE` at each level of usage, we need to divide each `n` by the sum of `n` in each usage level:
 
 ```{r ex21}
 
@@ -664,7 +667,7 @@ m_clean %>%
   
 ```
 
-Grouping by `college` allows us to calculate the proportion of leavers and stayers for `college == 0` and `college == 1`.  So, for example, among those without college there are 1186 / (1186 + 1314) = .4744 leavers and 1314/ (1186 + 1314) = .5266 stayers.  Because leaving and staying are the only two options .5266 + .4744 = 1.
+Grouping by `college` allows us to calculate the proportion of leavers and stayers for `college == 0` and `college == 1`.  So, for example, among those without college there are 1183 / (1183 + 1314) = .4744 leavers and 1314/ (1183 + 1314) = .5266 stayers.  Because leaving and staying are the only two options .5266 + .4744 = 1.
 
 Next, we pipe this table into `ggplot` for visualization:
 
@@ -701,7 +704,7 @@ This barplot, while it captures the same information, can be misleading because 
 
 ### Behavioral
 
-Are heavy mobile users more likely to leave? Create a boxplot to comparing `overage` at the two levels of `leave`.
+Are heavy mobile users more likely to leave? Create a boxplot to compare `overage` at the two levels of `leave`.
 
 
 ```{r overage-solution}
@@ -857,8 +860,8 @@ Have we learned anything from this EDA exercise that might cause us to  revise o
 **Base R Functions**
 
 - `read.csv()`. Reads a .csv file into R's working memory for analysis. The equivalent function in the tidyverse is `read_csv()`, which will do pretty much the same thing.
-- `summary().` Summarizes the variables in a dataset. The output is especially useful for getting a quick understanding of the distribution of numeric variables. It reports: min, max, first quartile, third quartile, median and mean. For factor variables the function reports the number of observations at each level. 
-- `==.` Evaluates logically, returning TRUE if two items are identical, otherwise FALSE.
+- `summary()`. Summarizes the variables in a dataset. The output is especially useful for getting a quick understanding of the distribution of numeric variables. It reports: min, max, first quartile, third quartile, median and mean. For factor variables the function reports the number of observations at each level. 
+- `==`. Evaluates logically, returning TRUE if two items are identical, otherwise FALSE.
 - `factor()`. Creates a factor variable.
 - `na.omit()`. Removes all rows with NAs from the dataset.
 - `head()`. Shows the top rows of a data frame.
@@ -882,14 +885,13 @@ Have we learned anything from this EDA exercise that might cause us to  revise o
 **ggplot2 Functions**
 
 - `ggplot()`.  Created a blank plot canvas.  Must be used in conjunction with a `geom` function specifying the plot type and the aesthetic mapping. 
-- `aes()`.  The aesthetic argument to the `ggplot` function. Specifies which variables 
-Map to the ex and Y axis, and which is associated with an additional plot dimension such as color.
+- `aes()`.  The aesthetic argument to the `ggplot` function. Specifies which variables map to the X and Y axes, and which is associated with an additional plot dimension such as color.
 - `geom_boxplot()`. Creates a boxplot.
 - `geom_histogram`. Creates a histogram.
 - `geom_col()`. Creates a bar plot with pre-calculated values.
-- `position = "dodge"`. Argument to geom_col() to create a bar plot with dodged bars.
+- `position = "dodge"`. Argument to geom_col() to create a bar plot with dodged (side by side) bars.
 - `labs()`. Supplies plot title and axis labels.
-- `facet_wrap()`.  Creates a small multiples plot.
+- `facet_wrap()`.  Creates plots for various levels of the variable.
 
 **Glossary**
 
